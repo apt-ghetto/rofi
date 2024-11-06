@@ -109,6 +109,8 @@ The following extra options exists:
 -   **keep-selection**: If set, the selection is not moved to the first entry,
     but the current position is maintained. The filter is cleared.
 
+-   **keep-filter**: If set, the filter is not cleared. 
+
 -   **new-selection**: If `keep-selection` is set, this allows you to override
     the selected entry (absolute position).
 
@@ -182,10 +184,19 @@ To specify a script there are the following options:
 - Specify an absolute path to the script.
 - The script is executable and located in your $PATH
 
-Scripts located in the following location are loaded on startup:
+Scripts located in the following location are **loaded** on startup
+and can be directly launched based on the filename (without extension):
 
-- The script is in `$XDG_CONFIG_PATH/rofi/scripts/`, this is usually
+- The script is in `$XDG_CONFIG_HOME/rofi/scripts/`, this is usually
   `~/.config/rofi/scripts/`.
+
+If you have a script 'mymode.sh' in this folder you can open it using:
+
+```bash
+rofi -show mymode
+```
+
+See `rofi -h` output for a list of detected scripts.
 
 ## SEE ALSO
 

@@ -577,14 +577,13 @@ static int dmenu_mode_init(Mode *sw) {
     Property *p = rofi_theme_property_create(P_INTEGER);
     p->name = g_strdup("lines");
     p->value.i = lines;
-    ThemeWidget *widget =
-        rofi_theme_find_or_create_name(rofi_theme, "listview");
+    ThemeWidget *wid = rofi_theme_find_or_create_name(rofi_theme, "listview");
     GHashTable *table =
         g_hash_table_new_full(g_str_hash, g_str_equal, NULL,
                               (GDestroyNotify)rofi_theme_property_free);
 
     g_hash_table_replace(table, p->name, p);
-    rofi_theme_widget_add_properties(widget, table);
+    rofi_theme_widget_add_properties(wid, table);
     g_hash_table_destroy(table);
   }
 
@@ -724,10 +723,6 @@ static cairo_surface_t *dmenu_get_icon(const Mode *sw,
   DmenuScriptEntry *dr = &(pd->cmd_list[selected_line]);
   if (dr->icon_name == NULL) {
     return NULL;
-  }
-  if (dr->icon_fetch_uid > 0 && dr->icon_fetch_size == height &&
-      dr->icon_fetch_scale == scale) {
-    return rofi_icon_fetcher_get(dr->icon_fetch_uid);
   }
   uint32_t uid = dr->icon_fetch_uid =
       rofi_icon_fetcher_query(dr->icon_name, height);

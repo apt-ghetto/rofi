@@ -46,6 +46,9 @@ Settings config = {
     /** Whether to load and show icons */
     .show_icons = FALSE,
 
+    /** Custom command to generate preview icons */
+    .preview_cmd = NULL,
+
     /** Terminal to use. (for ssh and open in terminal) */
     .terminal_emulator = "rofi-sensible-terminal",
     .ssh_client = "ssh",
@@ -160,5 +163,5 @@ Settings config = {
     /** workaround for broken xserver (#300 on xserver, #611) */
     .xserver_i300_workaround = FALSE,
     /** What browser to use for completion */
-    .completer_mode = "recursivebrowser",
+    .completer_mode = "filebrowser",
 };

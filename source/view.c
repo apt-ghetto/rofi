@@ -266,9 +266,9 @@ static void rofi_view_set_user_timeout(G_GNUC_UNUSED gpointer data) {
         CacheState.user_timeout =
             g_timeout_add(delay * 1000, rofi_view_user_timeout, NULL);
       } else {
-        Property *p = rofi_theme_find_property(wid, P_DOUBLE, "delay", TRUE);
-        if (p != NULL && p->type == P_DOUBLE && p->value.f > 0.01) {
-          double delay = p->value.f;
+        Property *prop = rofi_theme_find_property(wid, P_DOUBLE, "delay", TRUE);
+        if (prop != NULL && prop->type == P_DOUBLE && prop->value.f > 0.01) {
+          double delay = prop->value.f;
           CacheState.user_timeout =
               g_timeout_add(delay * 1000, rofi_view_user_timeout, NULL);
         }
@@ -640,9 +640,9 @@ static void selection_changed_callback(G_GNUC_UNUSED listview *lv,
       int icon_height =
           widget_get_desired_height(WIDGET(state->icon_current_entry),
                                     WIDGET(state->icon_current_entry)->w);
-      cairo_surface_t *icon =
+      cairo_surface_t *surf_icon =
           mode_get_icon(state->sw, state->line_map[index], icon_height);
-      icon_set_surface(state->icon_current_entry, icon);
+      icon_set_surface(state->icon_current_entry, surf_icon);
     } else {
       icon_set_surface(state->icon_current_entry, NULL);
     }
@@ -660,9 +660,9 @@ static void update_callback(textbox *t, icon *ico, unsigned int index,
 
     if (ico) {
       int icon_height = widget_get_desired_height(WIDGET(ico), WIDGET(ico)->w);
-      cairo_surface_t *icon =
+      cairo_surface_t *surf_icon =
           mode_get_icon(state->sw, state->line_map[index], icon_height);
-      icon_set_surface(ico, icon);
+      icon_set_surface(ico, surf_icon);
     }
     if (t) {
       // TODO needed for markup.
@@ -702,6 +702,10 @@ static void update_callback(textbox *t, icon *ico, unsigned int index,
     // TODO needed for markup.
     textbox_font(t, *type);
   }
+}
+static void page_changed_callback() {
+  rofi_view_workers_finalize();
+  rofi_view_workers_initialize();
 }
 
 static void _rofi_view_reload_row(RofiViewState *state) {
@@ -1596,8 +1600,9 @@ static void rofi_view_add_widget(RofiViewState *state, widget *parent_widget,
       g_error("Listview widget can only be added once to the layout.");
       return;
     }
-    state->list_view = listview_create(parent_widget, name, update_callback,
-                                       state, config.element_height, 0);
+    state->list_view =
+        listview_create(parent_widget, name, update_callback,
+                        page_changed_callback, state, config.element_height, 0);
     listview_set_selection_changed_callback(
         state->list_view, selection_changed_callback, (void *)state);
     box_add((box *)parent_widget, WIDGET(state->list_view), TRUE);
@@ -1698,6 +1703,15 @@ RofiViewState *rofi_view_create(Mode *sw, const char *input,
   state->finalize = finalize;
   state->mouse_seen = FALSE;
 
+  // In password mode, disable the entry history.
+  if ((menu_flags & MENU_PASSWORD) == MENU_PASSWORD) {
+    CacheState.entry_history_enable = FALSE;
+    g_debug("Disable entry history, because password setup.");
+  }
+  if (config.disable_history) {
+    CacheState.entry_history_enable = FALSE;
+    g_debug("Disable entry history, because history disable flag.");
+  }
   // Request the lines to show.
   state->num_lines = mode_get_num_entries(sw);
 
@@ -1786,14 +1800,14 @@ int rofi_view_error_dialog(const char *msg, int markup) {
   state->finalize = process_result;
 
   state->main_window = box_create(NULL, "window", ROFI_ORIENTATION_VERTICAL);
-  box *box = box_create(WIDGET(state->main_window), "error-message",
-                        ROFI_ORIENTATION_VERTICAL);
-  box_add(state->main_window, WIDGET(box), TRUE);
+  box *new_box = box_create(WIDGET(state->main_window), "error-message",
+                            ROFI_ORIENTATION_VERTICAL);
+  box_add(state->main_window, WIDGET(new_box), TRUE);
   state->text =
-      textbox_create(WIDGET(box), WIDGET_TYPE_TEXTBOX_TEXT, "textbox",
+      textbox_create(WIDGET(new_box), WIDGET_TYPE_TEXTBOX_TEXT, "textbox",
                      (TB_AUTOHEIGHT | TB_WRAP) + ((markup) ? TB_MARKUP : 0),
                      NORMAL, (msg != NULL) ? msg : "", 0, 0);
-  box_add(box, WIDGET(state->text), TRUE);
+  box_add(new_box, WIDGET(state->text), TRUE);
 
   // Make sure we enable fixed num lines when in normal window mode.
   if ((CacheState.flags & MENU_NORMAL_WINDOW) == MENU_NORMAL_WINDOW) {
@@ -1884,7 +1898,8 @@ void rofi_view_workers_initialize(void) {
 }
 void rofi_view_workers_finalize(void) {
   if (tpool) {
-    g_thread_pool_free(tpool, TRUE, TRUE);
+    // Discard all unprocessed jobs and don't wait for current jobs in execution
+    g_thread_pool_free(tpool, TRUE, FALSE);
     tpool = NULL;
   }
 }

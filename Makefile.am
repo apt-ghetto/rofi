@@ -186,7 +186,8 @@ generate-manpage: doc/rofi.1\
 	doc/rofi-dmenu.5\
 	doc/rofi-keys.5\
 	doc/rofi-script.5\
-	doc/rofi-theme.5
+	doc/rofi-theme.5 \
+	doc/rofi-thumbnails.5
 
 doc/rofi.1: doc/rofi.1.markdown
 	pandoc --standalone --to=man --lua-filter=$(top_srcdir)/doc/man_filter.lua -f markdown-tex_math_dollars -o ./$@ ./$<
@@ -204,6 +205,8 @@ doc/rofi-script.5: doc/rofi-script.5.markdown
 	pandoc --standalone --to=man --lua-filter=$(top_srcdir)/doc/man_filter.lua -f markdown-tex_math_dollars -o ./$@ ./$<
 doc/rofi-theme.5: doc/rofi-theme.5.markdown
 	pandoc --standalone --to=man --lua-filter=$(top_srcdir)/doc/man_filter.lua -f markdown-tex_math_dollars -o ./$@ ./$<
+doc/rofi-thumbnails.5: doc/rofi-thumbnails.5.markdown
+	pandoc --standalone --to=man --lua-filter=$(top_srcdir)/doc/man_filter.lua -f markdown-tex_math_dollars -o ./$@ ./$<
 
 endif
 
@@ -217,10 +220,12 @@ dist_man5_MANS=\
 	doc/rofi-dmenu.5\
 	doc/rofi-keys.5\
 	doc/rofi-script.5\
-	doc/rofi-theme.5
+	doc/rofi-theme.5\
+	doc/rofi-thumbnails.5
 
 EXTRA_DIST += \
 	doc/rofi-theme.5.markdown \
+	doc/rofi-thumbnails.5.markdown \
 	doc/rofi-debugging.5.markdown \
 	doc/rofi-script.5.markdown \
 	doc/rofi-keys.5.markdown \
@@ -668,6 +673,7 @@ desktop_DATA=\
 	data/rofi-theme-selector.desktop
 
 EXTRA_DIST += \
+	doc/man_filter.lua \
 	doc/meson.build \
 	subprojects/libgwater/mpd/meson.build \
 	subprojects/libgwater/nl/meson.build \
@@ -692,6 +698,7 @@ EXTRA_DIST += \
 	subprojects/libgwater/alsa-mixer/libgwater-alsa-mixer.h \
 	subprojects/libgwater/alsa-mixer/libgwater-alsa-mixer.c \
 	data/rofi.png\
+	meson-dist-script \
 	meson_options.txt \
 	meson.build
 

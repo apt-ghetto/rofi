@@ -25,7 +25,8 @@ flags = [
     '-Wunreachable-code',
     '-Werror=missing-prototypes',
     '-Wno-overlength-strings',
-    '-Wno-inline' # A bit too noisy with Bison…
+    '-Wno-inline', # A bit too noisy with Bison…
+    '-Wshadow'
 ]
 foreach f : flags
     if c_compiler.has_argument(f)
@@ -86,6 +87,7 @@ if xcb_enabled
         dependency('xcb-randr'),
         dependency('xcb-cursor'),
         dependency('xcb-xinerama'),
+        dependency('xcb-keysyms'),
         dependency('cairo-xcb'),
         dependency('libstartup-notification-1.0'),
     ]

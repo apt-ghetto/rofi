@@ -120,6 +120,8 @@ struct _listview {
   guint32 last_click;
   listview_mouse_activated_cb mouse_activated;
   void *mouse_activated_data;
+  
+  listview_page_changed_cb page_callback;
 
   char *listview_name;
 
@@ -284,6 +286,10 @@ static unsigned int scroll_per_page(listview *lv) {
         (lv->max_elements > 0) ? (lv->selected / lv->max_elements) : 0;
     offset = page * lv->max_elements;
     if (page != lv->cur_page) {
+
+      if (lv->page_callback)
+        lv->page_callback();
+
       lv->cur_page = page;
       lv->rchanged = TRUE;
     }
@@ -293,18 +299,46 @@ static unsigned int scroll_per_page(listview *lv) {
   return offset;
 }
 
-static unsigned int scroll_continious(listview *lv) {
-  unsigned int middle = (lv->max_rows - ((lv->max_rows & 1) == 0)) / 2;
+// For vertical packing flow
+static unsigned int scroll_continious_elements(listview *lv) {
+  unsigned int vmid = (lv->max_rows - 1) / 2;
+  unsigned int hmid = (lv->menu_columns - 1) / 2;
+  unsigned int middle = (lv->max_rows * hmid) + vmid;
   unsigned int offset = 0;
   if (lv->selected > middle) {
-    if (lv->selected < (lv->req_elements - (lv->max_rows - middle))) {
+    if (lv->selected < (lv->req_elements - (lv->max_elements - middle))) {
       offset = lv->selected - middle;
     }
     // Don't go below zero.
-    else if (lv->req_elements > lv->max_rows) {
-      offset = lv->req_elements - lv->max_rows;
+    else if (lv->req_elements > lv->max_elements) {
+      offset = lv->req_elements - lv->max_elements;
     }
   }
+  if (offset != lv->cur_page) {
+    // scrollbar_set_handle ( lv->scrollbar, offset );
+    lv->cur_page = offset;
+    lv->rchanged = TRUE;
+  }
+  return offset;
+}
+
+// For horizontal packing flow
+static unsigned int scroll_continious_rows(listview *lv) {
+  unsigned int middle, selected, req_rows, offset;
+  middle = (lv->max_rows - 1) / 2;
+  selected = lv->selected / lv->menu_columns;
+  req_rows = (lv->req_elements + lv->menu_columns - 1) / lv->menu_columns;
+  offset = 0;
+  if (selected > middle) {
+    if (selected < (req_rows - (lv->max_rows - middle))) {
+      offset = selected - middle;
+    }
+    // Don't go below zero.
+    else if (req_rows > lv->max_rows) {
+      offset = req_rows - lv->max_rows;
+    }
+  }
+  offset *= lv->menu_columns;
   if (offset != lv->cur_page) {
     // scrollbar_set_handle ( lv->scrollbar, offset );
     lv->cur_page = offset;
@@ -417,10 +451,12 @@ static void barview_draw(widget *wid, cairo_t *draw) {
 static void listview_draw(widget *wid, cairo_t *draw) {
   unsigned int offset = 0;
   listview *lv = (listview *)wid;
-  if (lv->scroll_type == LISTVIEW_SCROLL_CONTINIOUS) {
-    offset = scroll_continious(lv);
-  } else {
+  if (lv->scroll_type == LISTVIEW_SCROLL_PER_PAGE) {
     offset = scroll_per_page(lv);
+  } else if (lv->pack_direction == ROFI_ORIENTATION_VERTICAL) {
+    offset = scroll_continious_elements(lv);
+  } else {
+    offset = scroll_continious_rows(lv);
   }
   // Set these all together to make sure they update consistently.
   scrollbar_set_max_value(lv->scrollbar, lv->req_elements);
@@ -745,7 +781,8 @@ static gboolean listview_element_motion_notify(widget *wid,
 }
 
 listview *listview_create(widget *parent, const char *name,
-                          listview_update_callback cb, void *udata,
+                          listview_update_callback cb,
+                          listview_page_changed_cb page_cb, void *udata,
                           unsigned int eh, gboolean reverse) {
   listview *lv = g_malloc0(sizeof(listview));
   widget_init(WIDGET(lv), parent, WIDGET_TYPE_LISTVIEW, name);
@@ -781,6 +818,8 @@ listview *listview_create(widget *parent, const char *name,
 
   lv->callback = cb;
   lv->udata = udata;
+
+  lv->page_callback = page_cb;
 
   // Some settings.
   lv->spacing = rofi_theme_get_distance(WIDGET(lv), "spacing", DEFAULT_SPACING);

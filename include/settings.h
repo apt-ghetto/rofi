@@ -65,6 +65,9 @@ typedef struct {
 
   /** Whether to load and show icons  */
   gboolean show_icons;
+  
+  /** Custom command to generate preview icons */
+  char *preview_cmd;
 
   /** Terminal to use  */
   char *terminal_emulator;
