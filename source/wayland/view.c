@@ -247,10 +247,6 @@ typedef struct _thread_state_view {
 } thread_state_view;
 
 static void wayland___create_window(MenuFlags menu_flags) {
-  // In password mode, disable the entry history.
-  if ((menu_flags & MENU_PASSWORD) == MENU_PASSWORD) {
-    CacheState.entry_history_enable = FALSE;
-  }
   input_history_initialize();
 
   TICK_N("create cairo surface");

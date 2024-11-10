@@ -677,10 +677,6 @@ static void open_xim_callback(xcb_xim_t *im, G_GNUC_UNUSED void *user_data) {
 #endif
 
 static void xcb___create_window(MenuFlags menu_flags) {
-  // In password mode, disable the entry history.
-  if ((menu_flags & MENU_PASSWORD) == MENU_PASSWORD) {
-    CacheState.entry_history_enable = FALSE;
-  }
   input_history_initialize();
 
   uint32_t selmask = XCB_CW_BACK_PIXMAP | XCB_CW_BORDER_PIXEL |
