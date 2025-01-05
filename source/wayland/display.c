@@ -454,8 +454,6 @@ static void wayland_keyboard_key(void *data, struct wl_keyboard *keyboard,
   RofiViewState *state = rofi_view_get_active();
   wayland_seat *self = data;
 
-  gchar *text;
-
   wayland->last_seat = self;
   self->serial = serial;
 
@@ -471,7 +469,7 @@ static void wayland_keyboard_key(void *data, struct wl_keyboard *keyboard,
     nk_bindings_seat_handle_key(wayland->bindings_seat, NULL, keycode,
                                 NK_BINDINGS_KEY_STATE_RELEASE);
   } else if (kstate == WL_KEYBOARD_KEY_STATE_PRESSED) {
-    char *text = nk_bindings_seat_handle_key(
+    gchar *text = nk_bindings_seat_handle_key(
         wayland->bindings_seat, NULL, keycode, NK_BINDINGS_KEY_STATE_PRESS);
 
     if (self->repeat.source != NULL) {
