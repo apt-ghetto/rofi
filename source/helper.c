@@ -27,11 +27,12 @@
  */
 
 /** The log domain for this helper. */
+#include "config.h"
 #define G_LOG_DOMAIN "Helper"
 
-#include "config.h"
 #include "display.h"
 #include "helper-theme.h"
+#include "helper.h"
 #include "rofi.h"
 #include "settings.h"
 #include "view.h"
@@ -139,6 +140,7 @@ static gchar *glob_to_regex(const char *input) {
   return r;
 }
 static gchar *fuzzy_to_regex(const char *input) {
+  char *retv = NULL;
   GString *str = g_string_new("");
   gchar *r = g_regex_escape_string(input, -1);
   gchar *iter;
@@ -162,8 +164,7 @@ static gchar *fuzzy_to_regex(const char *input) {
     first = 0;
   }
   g_free(r);
-  char *retv = str->str;
-  g_string_free(str, FALSE);
+  retv = g_string_free(str, FALSE);
   return retv;
 }
 
@@ -1065,6 +1066,92 @@ gboolean helper_execute_command(const char *wd, const char *cmd,
   return helper_execute(wd, args, "", cmd, context);
 }
 
+static char *helper_get_theme_path_check_file(const char *filename,
+                                              const char *parent_file) {
+
+  // Check if absolute path.
+  if (g_path_is_absolute(filename)) {
+    g_debug("Opening theme, path is absolute: %s", filename);
+    if (g_file_test(filename, G_FILE_TEST_EXISTS)) {
+      return g_strdup(filename);
+    }
+    g_debug("Opening theme, path is absolute but does not exists: %s",
+            filename);
+  } else {
+    if (parent_file != NULL) {
+      // If no absolute path specified, expand it.
+      char *basedir = g_path_get_dirname(parent_file);
+      char *path = g_build_filename(basedir, filename, NULL);
+      g_free(basedir);
+      g_debug("Opening theme, check in dir where file is included: %s", path);
+      if (g_file_test(path, G_FILE_TEST_EXISTS)) {
+        return path;
+      }
+      g_debug("Opening theme, file does not exists in dir where file is "
+              "included: %s\n",
+              filename);
+    }
+  }
+  // Check config's themes directory.
+  const char *cpath = g_get_user_config_dir();
+  if (cpath) {
+    char *themep = g_build_filename(cpath, "rofi", "themes", filename, NULL);
+    g_debug("Opening theme, testing: %s", themep);
+    if (themep && g_file_test(themep, G_FILE_TEST_EXISTS)) {
+      return themep;
+    }
+    g_free(themep);
+  }
+  // Check config directory.
+  if (cpath) {
+    char *themep = g_build_filename(cpath, "rofi", filename, NULL);
+    g_debug("Opening theme, testing: %s", themep);
+    if (g_file_test(themep, G_FILE_TEST_EXISTS)) {
+      return themep;
+    }
+    g_free(themep);
+  }
+  const char *datadir = g_get_user_data_dir();
+  if (datadir) {
+    char *theme_path =
+        g_build_filename(datadir, "rofi", "themes", filename, NULL);
+    if (theme_path) {
+      g_debug("Opening theme, testing: %s", theme_path);
+      if (g_file_test(theme_path, G_FILE_TEST_EXISTS)) {
+        return theme_path;
+      }
+      g_free(theme_path);
+    }
+  }
+
+  const gchar *const *system_data_dirs = g_get_system_data_dirs();
+  if (system_data_dirs) {
+    for (uint_fast32_t i = 0; system_data_dirs[i] != NULL; i++) {
+      const char *const sdatadir = system_data_dirs[i];
+      g_debug("Opening theme directory: %s", sdatadir);
+      char *theme_path =
+          g_build_filename(sdatadir, "rofi", "themes", filename, NULL);
+      if (theme_path) {
+        g_debug("Opening theme, testing: %s", theme_path);
+        if (g_file_test(theme_path, G_FILE_TEST_EXISTS)) {
+          return theme_path;
+        }
+        g_free(theme_path);
+      }
+    }
+  }
+
+  char *theme_path = g_build_filename(THEME_DIR, filename, NULL);
+  if (theme_path) {
+    g_debug("Opening theme, testing: %s", theme_path);
+    if (g_file_test(theme_path, G_FILE_TEST_EXISTS)) {
+      return theme_path;
+    }
+    g_free(theme_path);
+  }
+  return NULL;
+}
+
 char *helper_get_theme_path(const char *file, const char **ext,
                             const char *parent_file) {
 
@@ -1085,99 +1172,28 @@ char *helper_get_theme_path(const char *file, const char **ext,
   }
   if (ext_found) {
     filename = rofi_expand_path(file);
+
+    char *retv = helper_get_theme_path_check_file(filename, parent_file);
+    if (retv) {
+      g_free(filename);
+      return retv;
+    }
   } else {
     g_assert_nonnull(ext[0]);
+    // Iterate through extensions.
     char *temp = filename;
-    // TODO: Pick the first extension. needs fixing.
-    filename = g_strconcat(temp, ext[0], NULL);
+    for (const char **i = ext; *i != NULL; i++) {
+      filename = g_strconcat(temp, *i, NULL);
+      char *retv = helper_get_theme_path_check_file(filename, parent_file);
+      if (retv) {
+        g_free(filename);
+        g_free(temp);
+        return retv;
+      }
+    }
     g_free(temp);
   }
-  if (g_path_is_absolute(filename)) {
-    g_debug("Opening theme, path is absolute: %s", filename);
-    if (g_file_test(filename, G_FILE_TEST_EXISTS)) {
-      return filename;
-    }
-    g_debug("Opening theme, path is absolute but does not exists: %s",
-            filename);
-  } else {
-    if (parent_file != NULL) {
-      // If no absolute path specified, expand it.
-      char *basedir = g_path_get_dirname(parent_file);
-      char *path = g_build_filename(basedir, filename, NULL);
-      g_free(basedir);
-      g_debug("Opening theme, check in dir where file is included: %s", path);
-      if (g_file_test(path, G_FILE_TEST_EXISTS)) {
-        g_free(filename);
-        return path;
-      }
-      g_debug("Opening theme, file does not exists in dir where file is "
-              "included: %s\n",
-              filename);
-    }
-  }
 
-  // Check config's themes directory.
-  const char *cpath = g_get_user_config_dir();
-  if (cpath) {
-    char *themep = g_build_filename(cpath, "rofi", "themes", filename, NULL);
-    g_debug("Opening theme, testing: %s", themep);
-    if (themep && g_file_test(themep, G_FILE_TEST_EXISTS)) {
-      g_free(filename);
-      return themep;
-    }
-    g_free(themep);
-  }
-  // Check config directory.
-  if (cpath) {
-    char *themep = g_build_filename(cpath, "rofi", filename, NULL);
-    g_debug("Opening theme, testing: %s", themep);
-    if (g_file_test(themep, G_FILE_TEST_EXISTS)) {
-      g_free(filename);
-      return themep;
-    }
-    g_free(themep);
-  }
-  const char *datadir = g_get_user_data_dir();
-  if (datadir) {
-    char *theme_path =
-        g_build_filename(datadir, "rofi", "themes", filename, NULL);
-    if (theme_path) {
-      g_debug("Opening theme, testing: %s", theme_path);
-      if (g_file_test(theme_path, G_FILE_TEST_EXISTS)) {
-        g_free(filename);
-        return theme_path;
-      }
-      g_free(theme_path);
-    }
-  }
-
-  const gchar *const *system_data_dirs = g_get_system_data_dirs();
-  if (system_data_dirs) {
-    for (uint_fast32_t i = 0; system_data_dirs[i] != NULL; i++) {
-      const char *const sdatadir = system_data_dirs[i];
-      g_debug("Opening theme directory: %s", sdatadir);
-      char *theme_path =
-          g_build_filename(sdatadir, "rofi", "themes", filename, NULL);
-      if (theme_path) {
-        g_debug("Opening theme, testing: %s", theme_path);
-        if (g_file_test(theme_path, G_FILE_TEST_EXISTS)) {
-          g_free(filename);
-          return theme_path;
-        }
-        g_free(theme_path);
-      }
-    }
-  }
-
-  char *theme_path = g_build_filename(THEME_DIR, filename, NULL);
-  if (theme_path) {
-    g_debug("Opening theme, testing: %s", theme_path);
-    if (g_file_test(theme_path, G_FILE_TEST_EXISTS)) {
-      g_free(filename);
-      return theme_path;
-    }
-    g_free(theme_path);
-  }
   return filename;
 }
 
